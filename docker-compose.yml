@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # MongoDB Database Service
+  mongo:
+    image: mongo:6-jammy
+    container_name: hireflow-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - hireflow-network
+
+  # Backend Express & Socket.IO API
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: hireflow-server
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - MONGODB_URI=mongodb://mongo:27017/hireflow
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET before starting HireFlow}
+      - CLIENT_URL=${CLIENT_URL:-http://localhost}
+      - NODE_ENV=production
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      - mongo
+    networks:
+      - hireflow-network
+
+  # Frontend React Client
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: hireflow-client
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    networks:
+      - hireflow-network
+
+volumes:
+  mongo_data:
+  uploads_data:
+
+networks:
+  hireflow-network:
+    driver: bridge

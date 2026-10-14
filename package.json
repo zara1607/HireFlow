@@ -1,0 +1,13 @@
+{
+  "name": "hireflow",
+  "version": "1.0.0",
+  "description": "HireFlow - Modern Full-Stack Recruitment Platform",
+  "private": true,
+  "scripts": {
+    "server": "npm run dev --prefix server",
+    "client": "npm run dev --prefix client",
+    "test:api": "npm run test:api --prefix server",
+    "seed": "npm run seed --prefix server",
+    "build:client": "npm run build --prefix client"
+  }
+}
