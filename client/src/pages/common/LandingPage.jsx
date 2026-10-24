@@ -35,7 +35,6 @@ export const LandingPage = () => {
         setCatalogLoading(true);
         setCatalogError('');
         
-        // FIXED: Changed status from 'OPEN' to 'published' to match backend
         const [featured, latest, categoryResult] = await Promise.all([
           jobService.getJobs({ status: 'OPEN', featured: true, limit: 3 }),
           jobService.getJobs({ status: 'OPEN', limit: 6, sort: 'newest' }),

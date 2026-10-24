@@ -6,15 +6,11 @@ const app = require('./app');
 const { connectDB } = require('./config/db');
 const User = require('./models/User');
 const socketHandler = require('./sockets/socketHandler');
-const { getCorsOrigin } = require('./config/cors');
 const { getJwtSecret } = require('./utils/token');
 const { seedData } = require('../scripts/seed');
 
 const PORT = process.env.PORT || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
-
-// Your live Vercel URL
-const VERCEL_URL = 'https://hire-flow-lxz38ueau-zaras-projects-77253531.vercel.app';
 
 const startServer = async () => {
   try {
@@ -29,10 +25,16 @@ const startServer = async () => {
     // Create HTTP server
     const server = http.createServer(app);
 
-    // Initialize Socket.io with permissive CORS to fix the connection
     const io = new Server(server, {
       cors: {
-        origin: [CLIENT_URL, VERCEL_URL, 'http://localhost:5173'],
+        origin: (origin, callback) => {
+          if (!origin) return callback(null, true);
+
+          const isAllowedOrigin =
+            origin === 'http://localhost:5173' || /\.vercel\.app$/.test(origin);
+
+          callback(isAllowedOrigin ? null : new Error('Not allowed by CORS'), isAllowedOrigin);
+        },
         methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
         credentials: true,
       },
@@ -63,7 +65,6 @@ const startServer = async () => {
       console.log(`===============================================`);
       console.log(`🚀 HireFlow Server running on port ${PORT}`);
       console.log(`📡 Client URL: ${CLIENT_URL}`);
-      console.log(`🌐 Vercel URL: ${VERCEL_URL}`);
       console.log(`🩺 Health check: http://localhost:${PORT}/api/health`);
       console.log(`===============================================`);
     });

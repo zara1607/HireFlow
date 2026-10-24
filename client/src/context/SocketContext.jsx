@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 
 const SocketContext = createContext(null);
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
 export const SocketProvider = ({ children }) => {
   const { user, isAuthenticated } = useAuth();
@@ -13,8 +14,7 @@ export const SocketProvider = ({ children }) => {
     let socketInstance = null;
 
     if (isAuthenticated && user?._id) {
-      const socketUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin;
-      socketInstance = io(socketUrl, {
+      socketInstance = io(SOCKET_URL, {
         auth: { token: localStorage.getItem('hireflow_token') },
         transports: ['websocket', 'polling'],
       });

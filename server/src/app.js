@@ -21,30 +21,14 @@ app.use(
   })
 );
 
-// Enable CORS with explicitly allowed origins for local and production
-// Enable CORS
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:3000',
-  process.env.CLIENT_URL
-].filter(Boolean);
-
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin
       if (!origin) return callback(null, true);
-      
-      // Allow explicit origins, OR any vercel.app subdomain, OR any onrender.com subdomain
-      if (
-        allowedOrigins.indexOf(origin) !== -1 ||
-        origin.endsWith('.vercel.app') ||
-        process.env.NODE_ENV === 'development'
-      ) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
+      const isAllowedOrigin =
+        origin === 'http://localhost:5173' || /\.vercel\.app$/.test(origin);
+
+      callback(isAllowedOrigin ? null : new Error('Not allowed by CORS'), isAllowedOrigin);
     },
     credentials: true,
   })
