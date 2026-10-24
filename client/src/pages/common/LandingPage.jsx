@@ -34,17 +34,29 @@ export const LandingPage = () => {
       try {
         setCatalogLoading(true);
         setCatalogError('');
+        
+        // FIXED: Changed status from 'OPEN' to 'published' to match backend
         const [featured, latest, categoryResult] = await Promise.all([
-          jobService.getJobs({ status: 'OPEN', featured: true, limit: 3 }),
-          jobService.getJobs({ status: 'OPEN', limit: 6, sort: 'newest' }),
+          jobService.getJobs({ status: 'published', featured: true, limit: 3 }),
+          jobService.getJobs({ status: 'published', limit: 6, sort: 'newest' }),
           jobService.getJobCategories(),
         ]);
+        
         if (!active) return;
-        setFeaturedJobs(featured.jobs || []);
-        setLatestJobs(latest.jobs || []);
-        setCategories(categoryResult.categories || []);
+        
+        setFeaturedJobs(featured.jobs || featured.data?.jobs || []);
+        setLatestJobs(latest.jobs || latest.data?.jobs || []);
+        
+        // Safeguard: Backend might return objects (e.g. {name: 'Tech'}) or strings
+        const rawCategories = categoryResult.categories || categoryResult.data?.categories || [];
+        const formattedCategories = rawCategories.map(c => typeof c === 'object' ? c.name : c).filter(Boolean);
+        
+        setCategories(formattedCategories);
       } catch (error) {
-        if (active) setCatalogError(error.response?.data?.message || 'Job listings are temporarily unavailable.');
+        if (active) {
+          console.error("Catalog Load Error:", error);
+          setCatalogError(error.response?.data?.message || 'Job listings are temporarily unavailable.');
+        }
       } finally {
         if (active) setCatalogLoading(false);
       }
@@ -148,8 +160,13 @@ export const LandingPage = () => {
 
         {categories.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {categories.map((category) => (
-              <button key={category} type="button" onClick={() => navigate(`/jobs?category=${encodeURIComponent(category)}`)} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-emerald-400 hover:text-emerald-700">
+            {categories.map((category, idx) => (
+              <button 
+                key={idx} 
+                type="button" 
+                onClick={() => navigate(`/jobs?category=${encodeURIComponent(category)}`)} 
+                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-emerald-400 hover:text-emerald-700"
+              >
                 {category}
               </button>
             ))}

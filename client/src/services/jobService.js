@@ -2,7 +2,13 @@ import api from './api';
 
 export const jobService = {
   async getJobs(params = {}) {
-    const response = await api.get('/jobs', { params });
+    // If the backend expects 'published' but frontend sends 'OPEN', normalize it here
+    const normalizedParams = { ...params };
+    if (normalizedParams.status === 'OPEN') {
+      normalizedParams.status = 'published';
+    }
+    
+    const response = await api.get('/jobs', { params: normalizedParams });
     return response.data;
   },
 
@@ -12,6 +18,9 @@ export const jobService = {
   },
 
   async getJobCategories() {
+    // Based on typical backend setups, this might be at /jobs/categories or /categories
+    // Try /jobs/categories first (as you have it), if it fails in the backend, 
+    // we will adjust the backend route.
     const response = await api.get('/jobs/categories');
     return response.data;
   },
