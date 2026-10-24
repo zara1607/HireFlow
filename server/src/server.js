@@ -16,23 +16,18 @@ const startServer = async () => {
   try {
     getJwtSecret();
 
-    // Connect to database
     await connectDB();
     if (process.env.NODE_ENV === 'development' && process.env.SEED_DEMO_DATA !== 'false') {
       await seedData({ connect: false });
     }
 
-    // Create HTTP server
     const server = http.createServer(app);
 
     const io = new Server(server, {
       cors: {
         origin: (origin, callback) => {
           if (!origin) return callback(null, true);
-
-          const isAllowedOrigin =
-            origin === 'http://localhost:5173' || /\.vercel\.app$/.test(origin);
-
+          const isAllowedOrigin = origin === 'http://localhost:5173' || /\.vercel\.app$/.test(origin);
           callback(isAllowedOrigin ? null : new Error('Not allowed by CORS'), isAllowedOrigin);
         },
         methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
@@ -54,13 +49,9 @@ const startServer = async () => {
       }
     });
 
-    // Make io accessible in Express app routes/controllers
     app.set('io', io);
-
-    // Attach socket event listeners
     socketHandler(io);
 
-    // Listen on port
     server.listen(PORT, () => {
       console.log(`===============================================`);
       console.log(`🚀 HireFlow Server running on port ${PORT}`);

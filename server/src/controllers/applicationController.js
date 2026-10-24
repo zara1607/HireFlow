@@ -14,41 +14,23 @@ const applyForJob = async (req, res, next) => {
     const { jobId, coverLetter } = req.body;
 
     if (!jobId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Job ID is required',
-      });
+      return res.status(400).json({ success: false, message: 'Job ID is required' });
     }
 
     const job = await Job.findById(jobId);
     if (!job) {
-      return res.status(404).json({
-        success: false,
-        message: 'Job not found',
-      });
+      return res.status(404).json({ success: false, message: 'Job not found' });
     }
 
     if (job.status === 'CLOSED') {
-      return res.status(400).json({
-        success: false,
-        message: 'This job posting is closed and no longer accepting applications',
-      });
+      return res.status(400).json({ success: false, message: 'This job posting is closed and no longer accepting applications' });
     }
 
-    // Check if candidate already applied
-    const existing = await Application.findOne({
-      candidate: req.user._id,
-      job: jobId,
-    });
-
+    const existing = await Application.findOne({ candidate: req.user._id, job: jobId });
     if (existing) {
-      return res.status(400).json({
-        success: false,
-        message: 'You have already applied for this position',
-      });
+      return res.status(400).json({ success: false, message: 'You have already applied for this position' });
     }
 
-    // Determine resume to attach
     let resumeData = null;
     if (req.file) {
       resumeData = {
@@ -56,7 +38,6 @@ const applyForJob = async (req, res, next) => {
         filename: req.file.filename,
         originalName: req.file.originalname,
       };
-      // Also update candidate profile resume if not set
       if (!req.user.resume) {
         req.user.resume = {
           ...resumeData,
@@ -73,10 +54,7 @@ const applyForJob = async (req, res, next) => {
         originalName: req.user.resume.originalName,
       };
     } else {
-      return res.status(400).json({
-        success: false,
-        message: 'Please upload a resume or add a resume to your profile before applying',
-      });
+      return res.status(400).json({ success: false, message: 'Please upload a resume or add a resume to your profile before applying' });
     }
 
     const application = await Application.create({
@@ -88,7 +66,6 @@ const applyForJob = async (req, res, next) => {
       status: 'APPLIED',
     });
 
-    // Create notification for recruiter
     try {
       const notif = await Notification.create({
         recipient: job.recruiter,
@@ -99,7 +76,6 @@ const applyForJob = async (req, res, next) => {
         link: `/recruiter/jobs/${job._id}/applicants`,
       });
 
-      // Emit realtime notification via socket if available
       const io = req.app.get('io');
       if (io) {
         io.to(`user_${job.recruiter.toString()}`).emit('notification', notif);
@@ -108,11 +84,7 @@ const applyForJob = async (req, res, next) => {
       console.error('Failed to create recruiter notification:', notifErr.message);
     }
 
-    res.status(201).json({
-      success: true,
-      message: 'Application submitted successfully',
-      application,
-    });
+    res.status(201).json({ success: true, message: 'Application submitted successfully', application });
   } catch (err) {
     next(err);
   }
@@ -125,22 +97,16 @@ const getMyApplications = async (req, res, next) => {
   try {
     const { status } = req.query;
     const query = { candidate: req.user._id };
-
-    if (status && status !== 'ALL') {
-      query.status = status;
-    }
+    if (status && status !== 'ALL') query.status = status;
 
     const applications = await Application.find(query)
       .select('-notes')
       .populate('job', 'title company location employmentType experienceLevel salaryMin salaryMax status')
       .populate('recruiter', 'name email companyName')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
-    res.status(200).json({
-      success: true,
-      count: applications.length,
-      applications,
-    });
+    res.status(200).json({ success: true, count: applications.length, applications });
   } catch (err) {
     next(err);
   }
@@ -152,37 +118,22 @@ const getMyApplications = async (req, res, next) => {
 const getJobApplicants = async (req, res, next) => {
   try {
     const job = await Job.findById(req.params.jobId);
-    if (!job) {
-      return res.status(404).json({
-        success: false,
-        message: 'Job posting not found',
-      });
-    }
-
-    // Verify recruiter owns this job
+    if (!job) return res.status(404).json({ success: false, message: 'Job posting not found' });
     if (job.recruiter.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to view applicants for this job',
-      });
+      return res.status(403).json({ success: false, message: 'Not authorized to view applicants for this job' });
     }
 
     const { status } = req.query;
     const query = { job: req.params.jobId };
-    if (status && status !== 'ALL') {
-      query.status = status;
-    }
+    if (status && status !== 'ALL') query.status = status;
 
+    // .lean() added here for speed
     const applicants = await Application.find(query)
       .populate('candidate', 'name email headline bio skills education experience resume avatar')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
-    res.status(200).json({
-      success: true,
-      job,
-      count: applicants.length,
-      applicants,
-    });
+    res.status(200).json({ success: true, job, count: applicants.length, applicants });
   } catch (err) {
     next(err);
   }
@@ -195,25 +146,17 @@ const getAllRecruiterApplicants = async (req, res, next) => {
   try {
     const { status, jobId } = req.query;
     const query = { recruiter: req.user._id };
+    if (status && status !== 'ALL') query.status = status;
+    if (jobId && jobId !== 'ALL') query.job = jobId;
 
-    if (status && status !== 'ALL') {
-      query.status = status;
-    }
-
-    if (jobId && jobId !== 'ALL') {
-      query.job = jobId;
-    }
-
+    // .lean() added here to prevent 30-second timeout (ERR_CONNECTION_CLOSED)
     const applicants = await Application.find(query)
       .populate('candidate', 'name email headline bio skills education experience resume avatar')
       .populate('job', 'title company location employmentType')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
-    res.status(200).json({
-      success: true,
-      count: applicants.length,
-      applicants,
-    });
+    res.status(200).json({ success: true, count: applicants.length, applicants });
   } catch (err) {
     next(err);
   }
@@ -228,39 +171,19 @@ const updateApplicationStatus = async (req, res, next) => {
     const validStatuses = ['APPLIED', 'SHORTLISTED', 'INTERVIEW', 'REJECTED', 'HIRED'];
 
     if (!status || !validStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
-      });
+      return res.status(400).json({ success: false, message: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
     }
 
-    const application = await Application.findById(req.params.id)
-      .populate('job', 'title company')
-      .populate('candidate', 'name email');
-
-    if (!application) {
-      return res.status(404).json({
-        success: false,
-        message: 'Application not found',
-      });
-    }
-
-    // Verify recruiter owns this application
+    const application = await Application.findById(req.params.id).populate('job', 'title company').populate('candidate', 'name email');
+    if (!application) return res.status(404).json({ success: false, message: 'Application not found' });
     if (application.recruiter.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to manage this application',
-      });
+      return res.status(403).json({ success: false, message: 'Not authorized to manage this application' });
     }
 
     application.status = status;
-    if (notes !== undefined) {
-      application.notes = notes;
-    }
-
+    if (notes !== undefined) application.notes = notes;
     await application.save();
 
-    // Create notification for candidate
     try {
       const statusLabels = {
         SHORTLISTED: 'Your application has been Shortlisted! 🎉',
@@ -279,24 +202,16 @@ const updateApplicationStatus = async (req, res, next) => {
         link: '/candidate/applications',
       });
 
-      // Emit realtime socket event
       const io = req.app.get('io');
       if (io) {
         io.to(`user_${application.candidate._id.toString()}`).emit('notification', notif);
-        io.to(`user_${application.candidate._id.toString()}`).emit('application_updated', {
-          applicationId: application._id,
-          status,
-        });
+        io.to(`user_${application.candidate._id.toString()}`).emit('application_updated', { applicationId: application._id, status });
       }
     } catch (notifErr) {
       console.error('Failed to notify candidate:', notifErr.message);
     }
 
-    res.status(200).json({
-      success: true,
-      message: `Application status updated to ${status}`,
-      application,
-    });
+    res.status(200).json({ success: true, message: `Application status updated to ${status}`, application });
   } catch (err) {
     next(err);
   }
@@ -306,16 +221,11 @@ const updateRecruiterNotes = async (req, res, next) => {
   try {
     const { notes } = req.body;
     if (typeof notes !== 'string' || notes.length > 5000) {
-      return res.status(400).json({
-        success: false,
-        message: 'Private notes must be text under 5000 characters',
-      });
+      return res.status(400).json({ success: false, message: 'Private notes must be text under 5000 characters' });
     }
 
     const application = await Application.findById(req.params.id);
-    if (!application) {
-      return res.status(404).json({ success: false, message: 'Application not found' });
-    }
+    if (!application) return res.status(404).json({ success: false, message: 'Application not found' });
     if (application.recruiter.toString() !== req.user._id.toString()) {
       return res.status(403).json({ success: false, message: 'Not authorized to manage this application' });
     }
@@ -348,23 +258,15 @@ const scheduleInterview = async (req, res, next) => {
       }
     }
 
-    const application = await Application.findById(req.params.id)
-      .populate('job', 'title company')
-      .populate('candidate', 'name');
-    if (!application) {
-      return res.status(404).json({ success: false, message: 'Application not found' });
-    }
+    const application = await Application.findById(req.params.id).populate('job', 'title company').populate('candidate', 'name');
+    if (!application) return res.status(404).json({ success: false, message: 'Application not found' });
     if (application.recruiter.toString() !== req.user._id.toString()) {
       return res.status(403).json({ success: false, message: 'Not authorized to manage this application' });
     }
 
     application.interview = {
-      scheduledAt,
-      durationMinutes,
-      location: String(req.body.location || '').trim(),
-      meetingUrl,
-      message: String(req.body.message || '').trim(),
-      updatedAt: new Date(),
+      scheduledAt, durationMinutes, location: String(req.body.location || '').trim(), meetingUrl,
+      message: String(req.body.message || '').trim(), updatedAt: new Date(),
     };
     application.status = 'INTERVIEW';
     await application.save();
@@ -381,10 +283,7 @@ const scheduleInterview = async (req, res, next) => {
       const io = req.app.get('io');
       if (io) {
         io.to(`user_${application.candidate._id}`).emit('notification', notification);
-        io.to(`user_${application.candidate._id}`).emit('application_updated', {
-          applicationId: application._id,
-          status: application.status,
-        });
+        io.to(`user_${application.candidate._id}`).emit('application_updated', { applicationId: application._id, status: application.status });
       }
     } catch (notificationError) {
       console.error('Failed to notify candidate about interview:', notificationError.message);
@@ -402,38 +301,21 @@ const scheduleInterview = async (req, res, next) => {
 const downloadResume = async (req, res, next) => {
   try {
     const application = await Application.findById(req.params.id);
+    if (!application) return res.status(404).json({ success: false, message: 'Application not found' });
 
-    if (!application) {
-      return res.status(404).json({
-        success: false,
-        message: 'Application not found',
-      });
-    }
-
-    // Check authorization: must be the candidate or the recruiter
     const isCandidate = application.candidate.toString() === req.user._id.toString();
     const isRecruiter = application.recruiter.toString() === req.user._id.toString();
-
     if (!isCandidate && !isRecruiter) {
-      return res.status(403).json({
-        success: false,
-        message: 'You are not authorized to access this resume',
-      });
+      return res.status(403).json({ success: false, message: 'You are not authorized to access this resume' });
     }
 
     if (!application.resume || !application.resume.filename) {
-      return res.status(404).json({
-        success: false,
-        message: 'No resume file found for this application',
-      });
+      return res.status(404).json({ success: false, message: 'No resume file found for this application' });
     }
 
     if (application.resume.url?.startsWith('cloudinary://')) {
       const signedUrl = cloudinary.url(application.resume.filename, {
-        resource_type: 'raw',
-        type: 'authenticated',
-        sign_url: true,
-        secure: true,
+        resource_type: 'raw', type: 'authenticated', sign_url: true, secure: true,
       });
       return res.redirect(302, signedUrl);
     }
@@ -442,16 +324,12 @@ const downloadResume = async (req, res, next) => {
       return res.redirect(302, application.resume.url);
     }
 
-    // Safe path resolution
     const uploadDir = path.join(__dirname, '../../uploads/resumes');
     const safeFilename = path.basename(application.resume.filename);
     const filePath = path.join(uploadDir, safeFilename);
 
     if (!fs.existsSync(filePath)) {
-      return res.status(404).json({
-        success: false,
-        message: 'Resume file does not exist on the server',
-      });
+      return res.status(404).json({ success: false, message: 'Resume file does not exist on the server' });
     }
 
     res.download(filePath, application.resume.originalName || 'resume.pdf');
@@ -461,12 +339,6 @@ const downloadResume = async (req, res, next) => {
 };
 
 module.exports = {
-  applyForJob,
-  getMyApplications,
-  getJobApplicants,
-  getAllRecruiterApplicants,
-  updateApplicationStatus,
-  updateRecruiterNotes,
-  scheduleInterview,
-  downloadResume,
+  applyForJob, getMyApplications, getJobApplicants, getAllRecruiterApplicants,
+  updateApplicationStatus, updateRecruiterNotes, scheduleInterview, downloadResume,
 };

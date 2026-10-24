@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 
 const SocketContext = createContext(null);
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://hireflow-e4i5.onrender.com';
 
 export const SocketProvider = ({ children }) => {
   const { user, isAuthenticated } = useAuth();
@@ -16,16 +16,18 @@ export const SocketProvider = ({ children }) => {
     if (isAuthenticated && user?._id) {
       socketInstance = io(SOCKET_URL, {
         auth: { token: localStorage.getItem('hireflow_token') },
-        transports: ['websocket', 'polling'],
+        transports: ['polling', 'websocket'], // Polling first prevents back-forward cache drop
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
       });
 
       socketInstance.on('connect', () => {
-        // console.log('[Socket] Connected to server:', socketInstance.id);
         setConnected(true);
       });
 
       socketInstance.on('disconnect', () => {
-        // console.log('[Socket] Disconnected from server');
         setConnected(false);
       });
 
