@@ -8,6 +8,7 @@
     "start": "node src/server.js",
     "dev": "node src/server.js",
     "seed": "node scripts/seed.js",
+    "seed:jobs": "node scripts/seedJobs.js",
     "test:api": "node scripts/test-api.js"
   },
   "keywords": [
@@ -22,6 +23,7 @@
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
+    "cloudinary": "^2.5.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "helmet": "^8.0.0",

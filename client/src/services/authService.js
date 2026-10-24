@@ -29,6 +29,7 @@ export const authService = {
   async uploadResume(formData) {
     const response = await api.post('/users/resume', formData, {
       headers: {
+        Authorization: `Bearer ${localStorage.getItem('hireflow_token') || ''}`,
         'Content-Type': 'multipart/form-data',
       },
     });

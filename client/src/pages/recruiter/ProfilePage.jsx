@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Building, Globe, MapPin, Mail, User, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 
 export const RecruiterProfilePage = () => {
-  const { user, updateProfile } = useAuth();
+  const { user, loading: authLoading, updateProfile } = useAuth();
 
   const [name, setName] = useState(user?.name || '');
   const [companyName, setCompanyName] = useState(user?.companyName || '');
@@ -13,6 +14,18 @@ export const RecruiterProfilePage = () => {
 
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState({ type: '', text: '' });
+
+  if (authLoading) {
+    return <LoadingSpinner fullScreen={false} text="Loading your company profile..." />;
+  }
+
+  if (!user) {
+    return (
+      <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+        Your company profile could not be loaded. Sign in again and retry.
+      </p>
+    );
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();

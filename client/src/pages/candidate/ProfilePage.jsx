@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import {
   User,
-  FileText,
-  Upload,
   Plus,
   Trash2,
   CheckCircle2,
@@ -11,24 +9,39 @@ import {
   Briefcase,
   GraduationCap,
   Loader2,
-  Download,
 } from 'lucide-react';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+import { ResumeUpload } from '../../components/candidate/ResumeUpload';
 
 export const CandidateProfilePage = () => {
-  const { user, updateProfile, uploadResume } = useAuth();
+  const { user, loading: authLoading, updateProfile } = useAuth();
 
   const [name, setName] = useState(user?.name || '');
   const [headline, setHeadline] = useState(user?.headline || '');
   const [bio, setBio] = useState(user?.bio || '');
-  const [skills, setSkills] = useState(user?.skills || []);
+  const [skills, setSkills] = useState(() => (Array.isArray(user?.skills) ? user.skills : []));
   const [newSkill, setNewSkill] = useState('');
-  const [education, setEducation] = useState(user?.education || []);
-  const [experience, setExperience] = useState(user?.experience || []);
+  const [education, setEducation] = useState(() => (
+    Array.isArray(user?.education) ? user.education.filter(Boolean) : []
+  ));
+  const [experience, setExperience] = useState(() => (
+    Array.isArray(user?.experience) ? user.experience.filter(Boolean) : []
+  ));
 
-  const [resumeFile, setResumeFile] = useState(null);
-  const [uploadingResume, setUploadingResume] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [statusMessage, setStatusMessage] = useState({ type: '', text: '' });
+
+  if (authLoading) {
+    return <LoadingSpinner fullScreen={false} text="Loading your profile..." />;
+  }
+
+  if (!user) {
+    return (
+      <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+        Your profile could not be loaded. Sign in again and retry.
+      </p>
+    );
+  }
 
   // Skills handlers
   const handleAddSkill = (e) => {
@@ -87,29 +100,6 @@ export const CandidateProfilePage = () => {
     setExperience(experience.filter((_, i) => i !== index));
   };
 
-  // Resume upload handler
-  const handleResumeUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setUploadingResume(true);
-    setStatusMessage({ type: '', text: '' });
-
-    try {
-      const formData = new FormData();
-      formData.append('resume', file);
-      await uploadResume(formData);
-      setStatusMessage({ type: 'success', text: 'Resume document uploaded successfully!' });
-    } catch (err) {
-      setStatusMessage({
-        type: 'error',
-        text: err.response?.data?.message || 'Failed to upload resume document.',
-      });
-    } finally {
-      setUploadingResume(false);
-    }
-  };
-
   // Save profile info
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -164,63 +154,7 @@ export const CandidateProfilePage = () => {
         </div>
       )}
 
-      {/* Resume Card */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm space-y-4">
-        <h2 className="text-base font-bold text-slate-900 flex items-center space-x-2">
-          <FileText className="w-5 h-5 text-emerald-600" />
-          <span>Resume Document</span>
-        </h2>
-        <p className="text-xs text-slate-500">
-          Accepted formats: PDF, DOC, DOCX up to 5MB. This document is automatically used when applying to jobs.
-        </p>
-
-        {user?.resume?.filename ? (
-          <div className="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center space-x-3.5">
-              <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-xl">
-                <FileText className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-xs sm:text-sm font-bold text-slate-800 truncate">
-                  {user.resume.originalName}
-                </h4>
-                <p className="text-[11px] text-slate-500">
-                  Uploaded on {new Date(user.resume.uploadedAt).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <label className="cursor-pointer px-3.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 font-semibold text-xs rounded-xl shadow-xs transition">
-                {uploadingResume ? 'Uploading...' : 'Replace Resume'}
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx"
-                  onChange={handleResumeUpload}
-                  disabled={uploadingResume}
-                  className="hidden"
-                />
-              </label>
-            </div>
-          </div>
-        ) : (
-          <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center hover:border-emerald-500 transition">
-            <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-            <p className="text-xs font-semibold text-slate-700">No resume on file</p>
-            <p className="text-[11px] text-slate-400 mt-0.5 mb-3">Upload your resume to apply for positions quickly</p>
-            <label className="cursor-pointer inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs transition">
-              {uploadingResume ? 'Uploading...' : 'Select Resume File'}
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx"
-                onChange={handleResumeUpload}
-                disabled={uploadingResume}
-                className="hidden"
-              />
-            </label>
-          </div>
-        )}
-      </div>
+      <ResumeUpload />
 
       {/* Main Profile Form */}
       <form onSubmit={handleSaveProfile} className="space-y-8">
@@ -360,7 +294,7 @@ export const CandidateProfilePage = () => {
                     <label className="block text-[11px] font-semibold text-slate-600 mb-1">Company</label>
                     <input
                       type="text"
-                      value={exp.company}
+                      value={exp.company || ''}
                       onChange={(e) => handleUpdateExperience(idx, 'company', e.target.value)}
                       placeholder="Company Name"
                       className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2"
@@ -370,7 +304,7 @@ export const CandidateProfilePage = () => {
                     <label className="block text-[11px] font-semibold text-slate-600 mb-1">Title</label>
                     <input
                       type="text"
-                      value={exp.title}
+                      value={exp.title || ''}
                       onChange={(e) => handleUpdateExperience(idx, 'title', e.target.value)}
                       placeholder="e.g. Software Engineer"
                       className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2"
@@ -383,7 +317,7 @@ export const CandidateProfilePage = () => {
                     <label className="block text-[11px] font-semibold text-slate-600 mb-1">Start Date</label>
                     <input
                       type="text"
-                      value={exp.startDate}
+                      value={exp.startDate || ''}
                       onChange={(e) => handleUpdateExperience(idx, 'startDate', e.target.value)}
                       placeholder="e.g. Jan 2022"
                       className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2"
@@ -393,7 +327,7 @@ export const CandidateProfilePage = () => {
                     <label className="block text-[11px] font-semibold text-slate-600 mb-1">End Date</label>
                     <input
                       type="text"
-                      value={exp.endDate}
+                      value={exp.endDate || ''}
                       onChange={(e) => handleUpdateExperience(idx, 'endDate', e.target.value)}
                       placeholder="e.g. Present"
                       className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2"
@@ -405,7 +339,7 @@ export const CandidateProfilePage = () => {
                   <label className="block text-[11px] font-semibold text-slate-600 mb-1">Description</label>
                   <textarea
                     rows={2}
-                    value={exp.description}
+                    value={exp.description || ''}
                     onChange={(e) => handleUpdateExperience(idx, 'description', e.target.value)}
                     placeholder="Key contributions and achievements..."
                     className="w-full text-xs bg-white border border-slate-200 rounded-xl p-2.5"
@@ -452,7 +386,7 @@ export const CandidateProfilePage = () => {
                     <label className="block text-[11px] font-semibold text-slate-600 mb-1">School / University</label>
                     <input
                       type="text"
-                      value={edu.school}
+                      value={edu.school || ''}
                       onChange={(e) => handleUpdateEducation(idx, 'school', e.target.value)}
                       placeholder="University Name"
                       className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2"
@@ -462,7 +396,7 @@ export const CandidateProfilePage = () => {
                     <label className="block text-[11px] font-semibold text-slate-600 mb-1">Degree & Field</label>
                     <input
                       type="text"
-                      value={edu.degree}
+                      value={edu.degree || ''}
                       onChange={(e) => handleUpdateEducation(idx, 'degree', e.target.value)}
                       placeholder="e.g. B.S. in Computer Science"
                       className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2"

@@ -15,6 +15,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { Navbar } from '../components/common/Navbar';
 import { ToastAlert } from '../components/common/ToastAlert';
+import { PageErrorBoundary } from '../components/common/PageErrorBoundary';
 
 export const DashboardLayout = () => {
   const { isRecruiter, isCandidate } = useAuth();
@@ -83,7 +84,9 @@ export const DashboardLayout = () => {
 
           {/* Main Workspace Area */}
           <main className="lg:col-span-4 min-w-0">
-            <Outlet />
+            <PageErrorBoundary key={location.pathname}>
+              <Outlet />
+            </PageErrorBoundary>
           </main>
         </div>
       </div>

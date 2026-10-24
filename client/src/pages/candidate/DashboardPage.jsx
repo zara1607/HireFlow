@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 export const CandidateDashboardPage = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { socket } = useSocket();
   const [applications, setApplications] = useState([]);
   const [recommendedJobs, setRecommendedJobs] = useState([]);
@@ -37,12 +37,8 @@ export const CandidateDashboardPage = () => {
           jobService.getRecommendedJobs(),
         ]);
 
-        if (appRes.success) {
-          setApplications(appRes.applications);
-        }
-        if (jobRes.success) {
-          setRecommendedJobs(jobRes.jobs);
-        }
+        setApplications(Array.isArray(appRes.applications) ? appRes.applications : []);
+        setRecommendedJobs(Array.isArray(jobRes.jobs) ? jobRes.jobs : []);
       } catch (err) {
         console.error('Failed to load candidate dashboard:', err);
         setError(err.response?.data?.message || 'Could not load your dashboard. Try again.');
@@ -51,8 +47,9 @@ export const CandidateDashboardPage = () => {
       }
     };
 
+    if (authLoading || !user) return;
     loadDashboardData();
-  }, [retryCount]);
+  }, [retryCount, authLoading, user?._id]);
 
   useEffect(() => {
     if (!socket) return;
@@ -66,6 +63,18 @@ export const CandidateDashboardPage = () => {
     socket.on('application_updated', onApplicationUpdated);
     return () => socket.off('application_updated', onApplicationUpdated);
   }, [socket]);
+
+  if (authLoading) {
+    return <LoadingSpinner fullScreen={false} text="Loading your candidate overview..." />;
+  }
+
+  if (!user) {
+    return (
+      <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+        Your candidate account could not be loaded. Sign in again and retry.
+      </p>
+    );
+  }
 
   if (loading) {
     return <LoadingSpinner fullScreen={false} text="Loading your candidate overview..." />;

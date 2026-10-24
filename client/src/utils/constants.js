@@ -29,6 +29,10 @@ export const JOB_CATEGORIES = [
   'Product',
   'Analytics',
   'Marketing',
+  'Sales',
+  'Customer Support',
+  'Human Resources',
+  'Other',
 ];
 
 export const APPLICATION_STATUSES = [

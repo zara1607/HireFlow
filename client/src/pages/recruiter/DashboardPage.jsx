@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 
 export const RecruiterDashboardPage = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [jobs, setJobs] = useState([]);
   const [applicants, setApplicants] = useState([]);
   const [selectedJobFilter, setSelectedJobFilter] = useState('ALL');
@@ -33,8 +33,8 @@ export const RecruiterDashboardPage = () => {
         applicationService.getAllRecruiterApplicants(),
       ]);
 
-      if (jobsRes.success) setJobs(jobsRes.jobs);
-      if (applicantsRes.success) setApplicants(applicantsRes.applicants);
+      setJobs(Array.isArray(jobsRes.jobs) ? jobsRes.jobs : []);
+      setApplicants(Array.isArray(applicantsRes.applicants) ? applicantsRes.applicants : []);
     } catch (err) {
       setError(err.response?.data?.message || 'Could not load the recruiter dashboard. Try again.');
     } finally {
@@ -43,8 +43,9 @@ export const RecruiterDashboardPage = () => {
   };
 
   useEffect(() => {
+    if (authLoading || !user) return;
     fetchDashboardData();
-  }, [retryCount]);
+  }, [retryCount, authLoading, user?._id]);
 
   const handleStatusChange = async (appId, newStatus) => {
     try {
@@ -71,6 +72,18 @@ export const RecruiterDashboardPage = () => {
         : application
     )));
   };
+
+  if (authLoading) {
+    return <LoadingSpinner fullScreen={false} text="Loading recruiter dashboard..." />;
+  }
+
+  if (!user) {
+    return (
+      <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+        Your recruiter account could not be loaded. Sign in again and retry.
+      </p>
+    );
+  }
 
   if (loading) {
     return <LoadingSpinner fullScreen={false} text="Loading recruiter dashboard..." />;

@@ -49,7 +49,7 @@ const errorHandler = (err, req, res, next) => {
   }
 
   // Custom or generic error
-  const statusCode = error.statusCode || res.statusCode !== 200 ? res.statusCode : 500;
+  const statusCode = error.statusCode || (res.statusCode !== 200 ? res.statusCode : 500);
   res.status(statusCode).json({
     success: false,
     message: error.message || 'Internal Server Error',

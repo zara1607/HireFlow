@@ -1,5 +1,7 @@
 const User = require('../models/User');
 const Job = require('../models/Job');
+const fs = require('fs');
+const { cloudinary, cloudinaryConfigured } = require('../config/cloudinary');
 
 // @desc    Get current user profile
 // @route   GET /api/users/profile
@@ -60,24 +62,50 @@ const updateProfile = async (req, res, next) => {
 // @route   POST /api/users/resume
 // @access  Private (Job Seeker only)
 const uploadResume = async (req, res, next) => {
+  let uploadedAsset;
+  let responseSent = false;
+  let removeTemporaryFile = false;
+
   try {
     if (!req.file) {
+      responseSent = true;
       return res.status(400).json({
         success: false,
         message: 'Please select a resume file to upload (PDF, DOC, or DOCX)',
       });
     }
 
+    removeTemporaryFile = cloudinaryConfigured || process.env.NODE_ENV === 'production';
+    if (!cloudinaryConfigured && process.env.NODE_ENV === 'production') {
+      const error = new Error('Resume storage is not configured. Set the Cloudinary environment variables.');
+      error.statusCode = 503;
+      throw error;
+    }
+
     const user = await User.findById(req.user._id);
     if (!user) {
+      responseSent = true;
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    const fileUrl = `/uploads/resumes/${req.file.filename}`;
+    let fileUrl = `/uploads/resumes/${req.file.filename}`;
+    let filename = req.file.filename;
+
+    if (cloudinaryConfigured) {
+      uploadedAsset = await cloudinary.uploader.upload(req.file.path, {
+        folder: 'hireflow/resumes',
+        resource_type: 'raw',
+        type: 'authenticated',
+        use_filename: true,
+        unique_filename: true,
+      });
+      fileUrl = `cloudinary://${uploadedAsset.public_id}`;
+      filename = uploadedAsset.public_id;
+    }
 
     user.resume = {
       url: fileUrl,
-      filename: req.file.filename,
+      filename,
       originalName: req.file.originalname,
       size: req.file.size,
       mimeType: req.file.mimetype,
@@ -86,13 +114,34 @@ const uploadResume = async (req, res, next) => {
 
     await user.save();
 
+    responseSent = true;
     res.status(200).json({
       success: true,
       message: 'Resume uploaded successfully',
       resume: user.resume,
     });
   } catch (err) {
+    if (uploadedAsset && !responseSent) {
+      try {
+        await cloudinary.uploader.destroy(uploadedAsset.public_id, {
+          resource_type: 'raw',
+          type: 'authenticated',
+        });
+      } catch (cleanupError) {
+        console.error('Failed to remove an unreferenced resume from Cloudinary:', cleanupError);
+      }
+    }
     next(err);
+  } finally {
+    if (removeTemporaryFile && req.file?.path) {
+      try {
+        await fs.promises.unlink(req.file.path);
+      } catch (cleanupError) {
+        if (cleanupError.code !== 'ENOENT') {
+          console.error('Failed to remove temporary resume upload:', cleanupError);
+        }
+      }
+    }
   }
 };
 

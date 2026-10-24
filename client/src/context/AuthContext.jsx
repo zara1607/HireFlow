@@ -6,7 +6,14 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('hireflow_user');
-    return saved ? JSON.parse(saved) : null;
+    if (!saved) return null;
+    try {
+      return JSON.parse(saved);
+    } catch (error) {
+      console.error('Stored HireFlow user data is invalid:', error);
+      localStorage.removeItem('hireflow_user');
+      return null;
+    }
   });
   const [token, setToken] = useState(() => localStorage.getItem('hireflow_token'));
   const [loading, setLoading] = useState(true);

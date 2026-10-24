@@ -2,6 +2,7 @@ const Application = require('../models/Application');
 const Job = require('../models/Job');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const { cloudinary } = require('../config/cloudinary');
 const path = require('path');
 const fs = require('fs');
 
@@ -425,6 +426,20 @@ const downloadResume = async (req, res, next) => {
         success: false,
         message: 'No resume file found for this application',
       });
+    }
+
+    if (application.resume.url?.startsWith('cloudinary://')) {
+      const signedUrl = cloudinary.url(application.resume.filename, {
+        resource_type: 'raw',
+        type: 'authenticated',
+        sign_url: true,
+        secure: true,
+      });
+      return res.redirect(302, signedUrl);
+    }
+
+    if (application.resume.url?.startsWith('https://res.cloudinary.com/')) {
+      return res.redirect(302, application.resume.url);
     }
 
     // Safe path resolution
