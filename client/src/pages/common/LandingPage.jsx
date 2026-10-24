@@ -37,8 +37,8 @@ export const LandingPage = () => {
         
         // FIXED: Changed status from 'OPEN' to 'published' to match backend
         const [featured, latest, categoryResult] = await Promise.all([
-          jobService.getJobs({ status: 'published', featured: true, limit: 3 }),
-          jobService.getJobs({ status: 'published', limit: 6, sort: 'newest' }),
+          jobService.getJobs({ status: 'OPEN', featured: true, limit: 3 }),
+          jobService.getJobs({ status: 'OPEN', limit: 6, sort: 'newest' }),
           jobService.getJobCategories(),
         ]);
         
