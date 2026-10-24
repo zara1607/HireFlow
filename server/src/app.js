@@ -22,23 +22,27 @@ app.use(
 );
 
 // Enable CORS with explicitly allowed origins for local and production
+// Enable CORS
 const allowedOrigins = [
-  'http://localhost:5173', // Vite local dev
-  'http://localhost:3000', // Next.js local dev (just in case)
-  'https://hire-flow-lxz38ueau-zaras-projects-77253531.vercel.app', // Your Vercel production URL
-  process.env.CLIENT_URL // Fallback to Render environment variable if set
-].filter(Boolean); // Remove undefined if CLIENT_URL is not set
+  'http://localhost:5173',
+  'http://localhost:3000',
+  process.env.CLIENT_URL
+].filter(Boolean);
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps, curl, Postman)
+      // Allow requests with no origin
       if (!origin) return callback(null, true);
       
-      if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+      // Allow explicit origins, OR any vercel.app subdomain, OR any onrender.com subdomain
+      if (
+        allowedOrigins.indexOf(origin) !== -1 ||
+        origin.endsWith('.vercel.app') ||
+        process.env.NODE_ENV === 'development'
+      ) {
         callback(null, true);
       } else {
-        console.error(`Blocked by CORS: ${origin}`);
         callback(new Error('Not allowed by CORS'));
       }
     },
