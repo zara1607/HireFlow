@@ -13,6 +13,9 @@ const { seedData } = require('../scripts/seed');
 const PORT = process.env.PORT || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
+// Your live Vercel URL
+const VERCEL_URL = 'https://hire-flow-lxz38ueau-zaras-projects-77253531.vercel.app';
+
 const startServer = async () => {
   try {
     getJwtSecret();
@@ -26,10 +29,10 @@ const startServer = async () => {
     // Create HTTP server
     const server = http.createServer(app);
 
-    // Initialize Socket.io
+    // Initialize Socket.io with permissive CORS to fix the connection
     const io = new Server(server, {
       cors: {
-        origin: getCorsOrigin(),
+        origin: [CLIENT_URL, VERCEL_URL, 'http://localhost:5173'],
         methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
         credentials: true,
       },
@@ -60,6 +63,7 @@ const startServer = async () => {
       console.log(`===============================================`);
       console.log(`🚀 HireFlow Server running on port ${PORT}`);
       console.log(`📡 Client URL: ${CLIENT_URL}`);
+      console.log(`🌐 Vercel URL: ${VERCEL_URL}`);
       console.log(`🩺 Health check: http://localhost:${PORT}/api/health`);
       console.log(`===============================================`);
     });

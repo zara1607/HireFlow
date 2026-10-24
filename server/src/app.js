@@ -11,7 +11,6 @@ const applicationRoutes = require('./routes/applicationRoutes');
 const conversationRoutes = require('./routes/conversationRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const errorHandler = require('./middleware/errorHandler');
-const { getCorsOrigin } = require('./config/cors');
 
 const app = express();
 
@@ -22,10 +21,27 @@ app.use(
   })
 );
 
-// Enable CORS
+// Enable CORS with explicitly allowed origins for local and production
+const allowedOrigins = [
+  'http://localhost:5173', // Vite local dev
+  'http://localhost:3000', // Next.js local dev (just in case)
+  'https://hire-flow-lxz38ueau-zaras-projects-77253531.vercel.app', // Your Vercel production URL
+  process.env.CLIENT_URL // Fallback to Render environment variable if set
+].filter(Boolean); // Remove undefined if CLIENT_URL is not set
+
 app.use(
   cors({
-    origin: getCorsOrigin(),
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps, curl, Postman)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+        callback(null, true);
+      } else {
+        console.error(`Blocked by CORS: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   })
 );
